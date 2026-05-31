@@ -1,0 +1,133 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  admin
+  student
+}
+
+enum ProjectStatus {
+  active
+  archived
+}
+
+enum SourceAPI {
+  openalex
+  crossref
+  semanticscholar
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(255)
+  email     String   @unique @db.VarChar(255)
+  password  String   @db.VarChar(255)
+  role      Role     @default(student)
+  avatar    String?  @db.VarChar(500)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  projects    SearchProject[]
+  savedPapers SavedPaper[]
+
+  @@map("users")
+}
+
+model SearchProject {
+  id          Int           @id @default(autoincrement())
+  userId      Int           @map("user_id")
+  name        String        @db.VarChar(255)
+  keywords    String        @db.Text
+  description String?       @db.Text
+  status      ProjectStatus @default(active)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  user                  User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  papers                Paper[]
+  noveltyRecommendations NoveltyRecommendation[]
+
+  @@map("search_projects")
+}
+
+model Paper {
+  id        Int       @id @default(autoincrement())
+  projectId Int       @map("project_id")
+  title     String    @db.Text
+  authors   String    @db.Text
+  year      Int?
+  journal   String?   @db.VarChar(500)
+  doi       String?   @unique @db.VarChar(255)
+  abstract  String?   @db.LongText
+  citations Int?      @default(0)
+  url       String?   @db.VarChar(500)
+  sourceApi SourceAPI @map("source_api")
+  keywords  String?   @db.Text
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  project  SearchProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  analysis PaperAnalysis?
+  saved    SavedPaper[]
+
+  @@map("papers")
+}
+
+model PaperAnalysis {
+  id             Int      @id @default(autoincrement())
+  paperId        Int      @unique @map("paper_id")
+  method         String?  @db.VarChar(500)
+  researchObject String?  @map("research_object") @db.VarChar(500)
+  variables      String?  @db.Text
+  location       String?  @db.VarChar(255)
+  technology     String?  @db.VarChar(500)
+  results        String?  @db.Text
+  limitations    String?  @db.Text
+  opportunities  String?  @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  paper Paper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+
+  @@map("paper_analysis")
+}
+
+model NoveltyRecommendation {
+  id                Int      @id @default(autoincrement())
+  projectId         Int      @map("project_id")
+  noveltyTopic      String?  @map("novelty_topic") @db.Text
+  noveltyMethod     String?  @map("novelty_method") @db.Text
+  noveltyObject     String?  @map("novelty_object") @db.Text
+  noveltyLocation   String?  @map("novelty_location") @db.Text
+  noveltyVariable   String?  @map("novelty_variable") @db.Text
+  noveltyTechnology String?  @map("novelty_technology") @db.Text
+  noveltyScore      Float?   @map("novelty_score")
+  analysisSummary   String?  @map("analysis_summary") @db.Text
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  project SearchProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("novelty_recommendations")
+}
+
+model SavedPaper {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  paperId   Int      @map("paper_id")
+  notes     String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paper Paper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, paperId])
+  @@map("saved_papers")
+}
